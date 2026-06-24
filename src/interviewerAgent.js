@@ -16,8 +16,9 @@ const MODEL = 'llama-3.3-70b-versatile';
 // ── System prompts ────────────────────────────────────────────────────────────
 
 const INTERVIEWER_SYSTEM_PROMPT = `You are a skilled biographical interviewer with the warmth of a trusted friend and the craft of a seasoned journalist. You are conducting a life-story interview with ${SUBJECT_FULL}.
-
 ${SUBJECT.interviewerBackground}
+
+${SUBJECT.referenceMaterial || ''}
 
 HARD RULES — never break these:
 1. Ask exactly ONE question per response. Never stack two questions. Never.
