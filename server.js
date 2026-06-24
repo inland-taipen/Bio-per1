@@ -86,6 +86,7 @@ app.get('/api/subjects/:id', (req, res) => {
     const stats = db.getCoverageStats(req.params.id);
     const openThreads = db.getOpenThreads(req.params.id);
     const biography = db.getLatestBiography(req.params.id);
+    const latestSession = db.getLatestSession(req.params.id);
 
     res.json({
       subject,
@@ -93,6 +94,8 @@ app.get('/api/subjects/:id', (req, res) => {
       coverageStats: stats,
       openThreadsCount: openThreads.length,
       hasBiography: !!biography,
+      latestSessionId: latestSession ? latestSession.id : null,
+      sessionNumber: latestSession ? latestSession.session_number : 1,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -648,6 +648,33 @@ async function startSession(subjectId, subjectName) {
   }
 }
 
+async function resumeSession(subjectId, subjectName) {
+  state.subjectId = subjectId;
+  state.subjectName = subjectName;
+  state.lastQuestionId = null;
+
+  document.getElementById('chat-messages').innerHTML = '';
+  showView('view-interview');
+
+  try {
+    const subjectData = await api('GET', `/api/subjects/${subjectId}`);
+    state.isOnboarding = !(subjectData.subject?.profile?.onboardingComplete);
+    state.sessionId = subjectData.latestSessionId;
+    state.sessionNumber = subjectData.sessionNumber;
+
+    updateSidebar(subjectName, state.sessionNumber);
+    updateCoverageDisplay(subjectData.coveragePercent || 0, subjectData.coverageStats);
+
+    await renderTranscript(subjectId, subjectName);
+
+    if (!state.sessionId) {
+      return startSession(subjectId, subjectName);
+    }
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
 // ── Upload Feature ────────────────────────────────────────────────────────────
 
 const uploadState = {
@@ -1004,58 +1031,41 @@ function init() {
   document.body.prepend(svgDefs);
 
   // ── Welcome screen ──
-  document.getElementById('btn-new-subject').addEventListener('click', () => {
-    showModal('modal-new-subject');
-    setTimeout(() => document.getElementById('input-subject-name').focus(), 100);
-  });
-
-  document.getElementById('btn-continue').addEventListener('click', async () => {
-    showModal('modal-subject-list');
-    await loadSubjectList();
-  });
-
-  document.getElementById('btn-close-new-subject').addEventListener('click', () => {
-    hideModal('modal-new-subject');
-  });
-  document.getElementById('btn-close-subject-list').addEventListener('click', () => {
-    hideModal('modal-subject-list');
-  });
-
-  // Close modals on backdrop click
-  document.getElementById('modal-new-subject').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) hideModal('modal-new-subject');
-  });
-  document.getElementById('modal-subject-list').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) hideModal('modal-subject-list');
-  });
-
-  // Create subject form
-  document.getElementById('btn-create-subject').addEventListener('click', async () => {
-    const nameInput = document.getElementById('input-subject-name');
-    const name = nameInput.value.trim();
-    if (!name) { nameInput.focus(); return; }
-
-    const btn = document.getElementById('btn-create-subject');
+  document.getElementById('btn-new-subject').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-new-subject');
     btn.disabled = true;
-    btn.textContent = 'Creating...';
-
     try {
-      const data = await api('POST', '/api/subjects', { name });
-      hideModal('modal-new-subject');
-      nameInput.value = '';
-      btn.disabled = false;
-      btn.innerHTML = 'Begin the interview <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-      await startSession(data.id, data.name);
-    } catch (err) {
-      btn.disabled = false;
-      btn.innerHTML = 'Begin the interview <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+      const data = await api('GET', '/api/subjects');
+      const subjects = data.subjects || [];
+      if (subjects.length > 0) {
+        await resumeSession(subjects[0].id, subjects[0].name);
+      } else {
+        const res = await api('POST', '/api/subjects', { name: 'Shailesh Haribhakti' });
+        await startSession(res.id, res.name);
+      }
+    } catch(err) {
       showError(err.message);
+    } finally {
+      btn.disabled = false;
     }
   });
 
-  // Create subject on Enter
-  document.getElementById('input-subject-name').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btn-create-subject').click();
+  document.getElementById('btn-continue').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-continue');
+    btn.disabled = true;
+    try {
+      const data = await api('GET', '/api/subjects');
+      const subjects = data.subjects || [];
+      if (subjects.length > 0) {
+        await resumeSession(subjects[0].id, subjects[0].name);
+      } else {
+        showError("No interview exists yet. Please click 'Begin the interview'.");
+      }
+    } catch(err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // ── Interview view ──
