@@ -20,51 +20,114 @@
       <div class="welcome-orb orb-1"></div>
       <div class="welcome-orb orb-2"></div>
       <div class="welcome-orb orb-3"></div>
+      <div class="welcome-hero-texture"></div>
     </div>
-    <div class="welcome-content">
-      <div class="logo">
-        <div class="logo-icon">✦</div>
-        <span>Shailesh Haribhakti</span>
-      </div>
-      <h1 class="welcome-title">A life of<br/><em>integrity &amp; vision.</em></h1>
-      <p class="welcome-subtitle">A private biographical interview created especially for Mr. Shailesh Haribhakti — to capture four decades of leadership, institution-building, and a philosophy of shared value.</p>
 
-      <div class="welcome-actions">
-        <button id="btn-new-subject" class="btn btn-primary btn-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Begin the interview
-        </button>
-        <button id="btn-continue" class="btn btn-ghost btn-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
-          Resume where we left off
-        </button>
+    <div class="welcome-split">
+
+      <!-- LEFT PANEL: Portrait + bio card -->
+      <div class="welcome-left">
+        <div class="portrait-container">
+          <div class="portrait-ring"></div>
+          <img src="/portrait.png" alt="Mr. Shailesh Haribhakti" class="portrait-img" />
+          <div class="portrait-crest">
+            <img src="/crest.png" alt="crest" />
+          </div>
+        </div>
+        <div class="subject-nameplate">
+          <div class="nameplate-name">Shailesh Haribhakti</div>
+          <div class="nameplate-title">CA · Author · Board Director · Institution Builder</div>
+        </div>
+
+        <!-- Animated milestone timeline -->
+        <div class="milestone-strip">
+          <div class="milestone" style="--d:0s">
+            <div class="milestone-year">1976</div>
+            <div class="milestone-dot"></div>
+            <div class="milestone-label">Joined Haribhakti & Co.</div>
+          </div>
+          <div class="milestone" style="--d:0.15s">
+            <div class="milestone-year">~22</div>
+            <div class="milestone-dot"></div>
+            <div class="milestone-label">Named CEO</div>
+          </div>
+          <div class="milestone" style="--d:0.3s">
+            <div class="milestone-year">2018</div>
+            <div class="milestone-dot"></div>
+            <div class="milestone-label">1,000+ member firm</div>
+          </div>
+          <div class="milestone" style="--d:0.45s">
+            <div class="milestone-year">Now</div>
+            <div class="milestone-dot"></div>
+            <div class="milestone-label">Audit Renaissance</div>
+          </div>
+        </div>
       </div>
 
-      <div class="welcome-features">
-        <div class="feature">
-          <div class="feature-icon">🎙</div>
-          <div class="feature-text">
-            <strong>Listens to a life's work</strong>
-            <span>80 questions spanning origins to legacy</span>
+      <!-- RIGHT PANEL: CTA + features -->
+      <div class="welcome-right">
+        <div class="welcome-content">
+          <div class="logo">
+            <div class="logo-icon">✦</div>
+            <span>Shailesh Haribhakti</span>
           </div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🧵</div>
-          <div class="feature-text">
-            <strong>Captures every thread</strong>
-            <span>Returns to untold stories across sessions</span>
+          <h1 class="welcome-title">A life of<br/><em>integrity &amp; vision.</em></h1>
+          <p class="welcome-subtitle">A private biographical interview created especially for Mr. Shailesh Haribhakti — to capture four decades of leadership, institution-building, and a philosophy of shared value.</p>
+
+          <div class="welcome-actions">
+            <button id="btn-new-subject" class="btn btn-primary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Begin the interview
+            </button>
+            <button id="btn-continue" class="btn btn-ghost btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+              Resume where we left off
+            </button>
           </div>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">📖</div>
-          <div class="feature-text">
-            <strong>Crafts the biography</strong>
-            <span>Literary prose that honours your authentic voice</span>
+
+          <!-- Bio fact cards -->
+          <div class="bio-facts">
+            <div class="bio-fact-card">
+              <div class="bio-fact-icon">🏛️</div>
+              <div class="bio-fact-body">
+                <div class="bio-fact-label">Firm Built</div>
+                <div class="bio-fact-value">Haribhakti & Co. LLP</div>
+              </div>
+            </div>
+            <div class="bio-fact-card">
+              <div class="bio-fact-icon">📋</div>
+              <div class="bio-fact-body">
+                <div class="bio-fact-label">Board Roles</div>
+                <div class="bio-fact-value">L&T, Blue Star, Torrent & more</div>
+              </div>
+            </div>
+            <div class="bio-fact-card">
+              <div class="bio-fact-icon">📖</div>
+              <div class="bio-fact-body">
+                <div class="bio-fact-label">Authored</div>
+                <div class="bio-fact-value">Audit Renaissance</div>
+              </div>
+            </div>
+            <div class="bio-fact-card">
+              <div class="bio-fact-icon">🌱</div>
+              <div class="bio-fact-body">
+                <div class="bio-fact-label">Philosophy</div>
+                <div class="bio-fact-value">Innovate to Zero</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pull quote -->
+          <div class="welcome-quote">
+            <div class="quote-mark">"</div>
+            <div class="quote-text">A Chartered Accountant, Entrepreneur, Board Director, Innovator, Author, Teacher, Speaker, and Citizen of the World.</div>
           </div>
         </div>
       </div>
+
     </div>
   </div>
+
 
   <!-- ── NEW SUBJECT MODAL ──────────────────────────────────────────────────── -->
   <div id="modal-new-subject" class="modal-overlay hidden">
