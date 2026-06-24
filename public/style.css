@@ -1656,3 +1656,46 @@ svg defs { position: absolute; }
   padding: 6px 14px;
   margin: 2px auto;
 }
+
+/* ── Unlock / access overlay ─────────────────────────────────────────────── */
+.unlock-card {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 24px;
+  padding: 40px 36px;
+  background: var(--bg-1);
+  border: 1px solid rgba(201,150,42,0.25);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+  text-align: center;
+}
+.unlock-icon { font-size: 34px; margin-bottom: 14px; }
+.unlock-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: #f3ead4;
+  margin: 0 0 6px;
+}
+.unlock-subtitle {
+  color: #9aa0ad;
+  font-size: 0.92rem;
+  margin: 0 0 22px;
+}
+.unlock-input {
+  width: 100%;
+  padding: 13px 15px;
+  background: var(--bg-0);
+  border: 1px solid var(--bg-4);
+  border-radius: 10px;
+  color: #f3ead4;
+  font-size: 1rem;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.18s ease;
+}
+.unlock-input:focus { border-color: var(--gold); }
+.unlock-error {
+  margin-top: 14px;
+  color: #e7857a;
+  font-size: 0.85rem;
+}

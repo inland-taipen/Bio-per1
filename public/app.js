@@ -41,6 +41,22 @@ function hideModal(id) {
   if (el) el.classList.add('hidden');
 }
 
+// ── Access code ───────────────────────────────────────────────────────────────
+
+const ACCESS_KEY = 'bio_access_code';
+let SUBJECT_NAME = null; // populated from /api/config
+function getAccessCode() { return localStorage.getItem(ACCESS_KEY) || ''; }
+function setAccessCode(c) { localStorage.setItem(ACCESS_KEY, c); }
+
+// Single fetch choke point — injects the access code header on every request,
+// so both api() and the FormData upload paths are covered.
+async function authedFetch(path, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  const code = getAccessCode();
+  if (code) headers['x-access-code'] = code;
+  return fetch(path, Object.assign({}, opts, { headers }));
+}
+
 // ── API Helpers ───────────────────────────────────────────────────────────────
 
 async function api(method, path, body = null) {
@@ -49,8 +65,12 @@ async function api(method, path, body = null) {
     headers: { 'Content-Type': 'application/json' },
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
-  const data = await res.json();
+  const res = await authedFetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    requireUnlock();
+    throw new Error('__LOCKED__');
+  }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
@@ -59,6 +79,7 @@ async function api(method, path, body = null) {
 
 let toastTimer;
 function showError(msg) {
+  if (msg === '__LOCKED__') return; // unlock overlay handles this case
   const toast = document.getElementById('toast-error');
   const msgEl = document.getElementById('toast-error-msg');
   msgEl.textContent = msg;
@@ -538,10 +559,11 @@ async function loadSubjectList() {
  */
 async function renderTranscript(subjectId, subjectName) {
   const container = document.getElementById('chat-messages');
+  let lastAgentQuestionId = null;
   try {
     const data = await api('GET', `/api/subjects/${subjectId}/transcript`);
     const turns = data.turns || [];
-    if (turns.length === 0) return;
+    if (turns.length === 0) return null;
 
     // Group turns by session_id to detect session boundaries
     let currentSessionId = null;
@@ -577,6 +599,9 @@ async function renderTranscript(subjectId, subjectName) {
 
       if (turn.role === 'agent') {
         renderAgentMessage(turn.content, turn.move_type);
+        // Track the most recent question the agent asked. May be null when the
+        // last move was a "deepen" (which intentionally maps to no coverage Q).
+        lastAgentQuestionId = (turn.question_id != null) ? turn.question_id : null;
       } else if (turn.role === 'user') {
         renderUserMessage(turn.content);
       }
@@ -584,9 +609,11 @@ async function renderTranscript(subjectId, subjectName) {
 
     // Scroll to bottom after rendering history
     scrollToBottom();
+    return lastAgentQuestionId;
   } catch (err) {
     // Non-fatal: if transcript fails to load, just continue to new session
     console.warn('Could not load transcript:', err.message);
+    return null;
   }
 }
 
@@ -665,7 +692,11 @@ async function resumeSession(subjectId, subjectName) {
     updateSidebar(subjectName, state.sessionNumber);
     updateCoverageDisplay(subjectData.coveragePercent || 0, subjectData.coverageStats);
 
-    await renderTranscript(subjectId, subjectName);
+    const restoredQuestionId = await renderTranscript(subjectId, subjectName);
+    // Restore the in-progress question so the first answer after resuming is
+    // attributed to the right coverage-map question (null is valid if the last
+    // agent move was a deepen).
+    state.lastQuestionId = restoredQuestionId != null ? restoredQuestionId : null;
 
     if (!state.sessionId) {
       return startSession(subjectId, subjectName);
@@ -792,10 +823,11 @@ async function submitUploadFile() {
     try {
       const fd = new FormData();
       fd.append('audio', file);
-      const res = await fetch(`/api/subjects/${state.subjectId}/upload-audio`, {
+      const res = await authedFetch(`/api/subjects/${state.subjectId}/upload-audio`, {
         method: 'POST',
         body: fd,
       });
+      if (res.status === 401) { requireUnlock(); throw new Error('__LOCKED__'); }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       hideUploadLoading();
@@ -844,10 +876,11 @@ async function submitRecording() {
   try {
     const fd = new FormData();
     fd.append('audio', blob, 'recording.webm');
-    const res = await fetch(`/api/subjects/${state.subjectId}/upload-audio`, {
+    const res = await authedFetch(`/api/subjects/${state.subjectId}/upload-audio`, {
       method: 'POST',
       body: fd,
     });
+    if (res.status === 401) { requireUnlock(); throw new Error('__LOCKED__'); }
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     hideUploadLoading();
@@ -1016,6 +1049,114 @@ function setupUpload() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+// ── Config & Unlock ───────────────────────────────────────────────────────────
+
+// Fetch the public config and paint the welcome screen from it.
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config'); // public endpoint, no auth needed
+    if (!res.ok) return;
+    const cfg = await res.json();
+    applyConfig(cfg);
+  } catch (err) {
+    console.warn('Config load failed:', err.message);
+  }
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el && value != null) el.textContent = value;
+}
+
+function applyConfig(cfg) {
+  if (!cfg) return;
+  if (cfg.name) SUBJECT_NAME = cfg.name;
+  if (cfg.pageTitle) document.title = cfg.pageTitle;
+  const ui = cfg.ui || {};
+
+  setText('cfg-logo-text', ui.logoText);
+  setText('cfg-nameplate-name', ui.nameplateName);
+  setText('cfg-nameplate-title', ui.nameplateTitle);
+  setText('cfg-subtitle', ui.subtitle);
+  setText('cfg-quote', ui.pullQuote);
+
+  // Title = plain line + emphasised (italic) line
+  const titleEl = document.getElementById('cfg-title');
+  if (titleEl && (ui.titleLine1 || ui.titleEmphasis)) {
+    titleEl.innerHTML = `${escHtml(ui.titleLine1 || '')}<br/><em>${escHtml(ui.titleEmphasis || '')}</em>`;
+  }
+
+  // Milestone timeline
+  const tl = document.getElementById('cfg-timeline');
+  if (tl && Array.isArray(ui.timeline)) {
+    tl.innerHTML = ui.timeline.map((m, i) => `
+      <div class="milestone" style="--d:${(i * 0.15).toFixed(2)}s">
+        <div class="milestone-year">${escHtml(m.year)}</div>
+        <div class="milestone-dot"></div>
+        <div class="milestone-label">${escHtml(m.label)}</div>
+      </div>`).join('');
+  }
+
+  // Bio fact cards
+  const bf = document.getElementById('cfg-bio-facts');
+  if (bf && Array.isArray(ui.bioFacts)) {
+    bf.innerHTML = ui.bioFacts.map(f => `
+      <div class="bio-fact-card">
+        <div class="bio-fact-icon">${escHtml(f.icon || '')}</div>
+        <div class="bio-fact-body">
+          <div class="bio-fact-label">${escHtml(f.label || '')}</div>
+          <div class="bio-fact-value">${escHtml(f.value || '')}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+// Show the unlock overlay (called on any 401 from a gated call).
+function requireUnlock() {
+  const overlay = document.getElementById('overlay-unlock');
+  if (!overlay || !overlay.classList.contains('hidden')) {
+    // already visible (or missing) — nothing more to do
+    if (overlay) {
+      const input = document.getElementById('unlock-input');
+      if (input) input.focus();
+    }
+    return;
+  }
+  overlay.classList.remove('hidden');
+  const input = document.getElementById('unlock-input');
+  if (input) { input.value = ''; setTimeout(() => input.focus(), 50); }
+}
+
+async function attemptUnlock() {
+  const input = document.getElementById('unlock-input');
+  const errEl = document.getElementById('unlock-error');
+  const code = (input?.value || '').trim();
+  if (!code) return;
+  setAccessCode(code);
+  // Verify against a gated endpoint.
+  try {
+    const res = await authedFetch('/api/subjects');
+    if (res.ok) {
+      if (errEl) errEl.classList.add('hidden');
+      document.getElementById('overlay-unlock').classList.add('hidden');
+      const data = await res.json().catch(() => ({}));
+      reflectSubjectExistence((data.subjects || []).length);
+    } else {
+      if (errEl) errEl.classList.remove('hidden');
+    }
+  } catch (err) {
+    if (errEl) errEl.classList.remove('hidden');
+  }
+}
+
+// Once we know a subject exists, hide the "Begin" button to avoid confusion —
+// only "Resume" makes sense from then on. (Pre-unlock we can't know, so both
+// show on first paint by design.)
+function reflectSubjectExistence(count) {
+  const beginBtn = document.getElementById('btn-new-subject');
+  if (beginBtn) beginBtn.classList.toggle('hidden', count > 0);
+}
+
 function init() {
   // Inject SVG gradient into page
   const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1037,10 +1178,11 @@ function init() {
     try {
       const data = await api('GET', '/api/subjects');
       const subjects = data.subjects || [];
+      reflectSubjectExistence(subjects.length);
       if (subjects.length > 0) {
         await resumeSession(subjects[0].id, subjects[0].name);
       } else {
-        const res = await api('POST', '/api/subjects', { name: 'Shailesh Haribhakti' });
+        const res = await api('POST', '/api/subjects', { name: SUBJECT_NAME || 'Shailesh Haribhakti' });
         await startSession(res.id, res.name);
       }
     } catch(err) {
@@ -1056,6 +1198,7 @@ function init() {
     try {
       const data = await api('GET', '/api/subjects');
       const subjects = data.subjects || [];
+      reflectSubjectExistence(subjects.length);
       if (subjects.length > 0) {
         await resumeSession(subjects[0].id, subjects[0].name);
       } else {
@@ -1118,6 +1261,19 @@ function init() {
       }
     }
   });
+
+  // ── Unlock overlay ──
+  const unlockBtn = document.getElementById('btn-unlock');
+  if (unlockBtn) unlockBtn.addEventListener('click', attemptUnlock);
+  const unlockInput = document.getElementById('unlock-input');
+  if (unlockInput) {
+    unlockInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); attemptUnlock(); }
+    });
+  }
+
+  // ── Load public config + paint welcome ──
+  loadConfig();
 
   // ── Start at welcome ──
   showView('view-welcome');

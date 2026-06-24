@@ -15,6 +15,7 @@ const { generateBiography } = require('./src/writerAgent');
 const { buildCoverageMap, getCoveragePercent } = require('./src/coverageMap');
 const { processUploadedConversation } = require('./src/uploadAgent');
 const { transcribeAudio, buildWhisperPrompt } = require('./src/transcribeAudio');
+const { subjectConfig, render, publicConfig } = require('./subject.config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,26 @@ const upload = multer({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Public config (intentionally NOT behind the access code) ────────────────────
+// Lets the branded welcome screen render before the visitor enters the code.
+app.get('/api/config', (req, res) => {
+  res.json(publicConfig());
+});
+
+// ── Access control ──────────────────────────────────────────────────────────────
+// If ACCESS_CODE is set, every /api/* route below (except /api/config above and
+// /api/health) requires a matching x-access-code header. If ACCESS_CODE is unset,
+// the gate is disabled (useful for local dev) and a warning is logged at startup.
+const ACCESS_CODE = process.env.ACCESS_CODE || '';
+
+app.use('/api', (req, res, next) => {
+  if (!ACCESS_CODE) return next(); // gate disabled
+  if (req.path === '/health') return next();
+  const provided = req.get('x-access-code') || '';
+  if (provided === ACCESS_CODE) return next();
+  return res.status(401).json({ error: 'Unauthorized', code: 'ACCESS_CODE_REQUIRED' });
+});
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -123,13 +144,13 @@ app.post('/api/subjects/:id/sessions', async (req, res) => {
 
     if (!profile.onboardingComplete) {
       // First session: start with onboarding
-      openingMessage = `Mr. Haribhakti, it is a genuine privilege to have this time with you.\n\nBefore we step into the story of your life, I'd love to spend a few moments simply getting to know you as a person — not the professional, not the accolades, just you. So let's begin simply: where in the world did your life begin, and what kind of family did you grow up in?`;
+      openingMessage = render(subjectConfig.openings.onboarding);
 
       // Log opening turn
       db.addTurn(sessionId, req.params.id, 'agent', openingMessage, null, null);
     } else if (sessionNumber === 1) {
       // Onboarding done, first real interview session
-      openingMessage = `Wonderful. Now we can begin.\n\nEvery life has a starting point — a place, a family, a set of circumstances that you didn't choose but that shaped everything that followed. So let's go back to the very beginning.\n\nWhere were you born, and what kind of world did you arrive into?`;
+      openingMessage = render(subjectConfig.openings.firstInterview);
       questionId = 1;
       db.addTurn(sessionId, req.params.id, 'agent', openingMessage, questionId, 'advance');
     } else {
@@ -192,8 +213,7 @@ app.post('/api/interview/turn', async (req, res) => {
         db.updateProfile(subjectId, { ...updatedProfile, onboardingComplete: true });
         onboardingJustCompleted = true;
 
-        finalResponse = (result.response || '') +
-          `\n\nWonderful. Now I feel like I know a little of who I'm talking to.\n\nLet's begin. Every life has a starting point — a place, a set of circumstances you didn't choose but that shaped everything that followed. Take me back to the very beginning: where were you born, and what was the world like when you arrived?`;
+        finalResponse = (result.response || '') + render(subjectConfig.openings.onboardingComplete);
       }
 
       db.addTurn(sessionId, subjectId, 'agent', finalResponse, onboardingJustCompleted ? 1 : null, null);
@@ -399,6 +419,11 @@ db.initDb().then(() => {
       console.log(`\n⚠  WARNING: GROQ_API_KEY is not set. Edit .env to add your key.\n`);
     } else {
       console.log(`✓ Groq API key detected.\n`);
+    }
+    if (!ACCESS_CODE) {
+      console.log(`⚠  WARNING: ACCESS_CODE is not set — the app is PUBLICLY accessible. Set ACCESS_CODE to require an unlock code.\n`);
+    } else {
+      console.log(`✓ Access code protection enabled.\n`);
     }
   });
 }).catch(err => {
